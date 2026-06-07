@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from importlib import import_module
 from dataclasses import dataclass
 
-from .common.generic_scraper import ArchConfig, GenericArchitectureScraper
+from .common.generic_scraper import GenericArchitectureScraper
 
 ARCHITECTURES = [
     "aarch64","alpha","arc","arm","avr","bfin","bpf","cr16","cris","crx","csky","d10v","d30v","dlx",
@@ -76,5 +77,5 @@ def get_scraper(arch: str) -> GenericArchitectureScraper:
     if arch not in ARCHITECTURES:
         raise KeyError(f"Unknown architecture: {arch}")
     meta = architecture_meta(arch)
-    config = ArchConfig(arch=meta.name, pretty_name=meta.pretty_name, tokens=meta.tokens)
-    return GenericArchitectureScraper(config)
+    module = import_module(meta.scraper_module)
+    return module.ArchitectureScraper()

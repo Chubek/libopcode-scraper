@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from Scrapers.common.generic_scraper import ArchConfig, GenericArchitectureScraper
-from Scrapers.registry import pretty_name_for
+from Scrapers.registry import architecture_meta
 
 
 class ArchitectureScraper(GenericArchitectureScraper):
     def __init__(self):
-        super().__init__(ArchConfig(arch="tic4x", pretty_name=pretty_name_for("tic4x"), tokens={"tic4x"}))
+        meta = architecture_meta("tic4x")
+        super().__init__(ArchConfig(arch=meta.name, pretty_name=meta.pretty_name, tokens=meta.tokens))

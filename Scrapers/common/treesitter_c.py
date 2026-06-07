@@ -24,7 +24,7 @@ def _load_c_parser():
 
         return get_parser("c"), "tree_sitter_languages"
     except Exception:
-        pass
+        tree_sitter_languages_unavailable = True
     try:
         from tree_sitter import Language, Parser  # type: ignore
         import tree_sitter_c  # type: ignore
@@ -33,6 +33,7 @@ def _load_c_parser():
         parser.language = Language(tree_sitter_c.language())
         return parser, "tree_sitter_c"
     except Exception:
+        _ = tree_sitter_languages_unavailable
         return None, "fallback_regex"
 
 
