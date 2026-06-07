@@ -42,6 +42,42 @@ def _dict_to_xml(parent: Element, key: str, value) -> None:
     node.text = "" if value is None else str(value)
 
 
+def _yaml_scalar(value) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, float)):
+        return str(value)
+    return json.dumps(str(value), ensure_ascii=True)
+
+
+def _to_yaml_lines(value, indent: int = 0) -> list[str]:
+    pad = " " * indent
+    lines: list[str] = []
+    if isinstance(value, dict):
+        if not value:
+            return [f"{pad}{{}}"]
+        for key, sub_value in value.items():
+            if isinstance(sub_value, (dict, list)):
+                lines.append(f"{pad}{key}:")
+                lines.extend(_to_yaml_lines(sub_value, indent + 2))
+            else:
+                lines.append(f"{pad}{key}: {_yaml_scalar(sub_value)}")
+        return lines
+    if isinstance(value, list):
+        if not value:
+            return [f"{pad}[]"]
+        for item in value:
+            if isinstance(item, (dict, list)):
+                lines.append(f"{pad}-")
+                lines.extend(_to_yaml_lines(item, indent + 2))
+            else:
+                lines.append(f"{pad}- {_yaml_scalar(item)}")
+        return lines
+    return [f"{pad}{_yaml_scalar(value)}"]
+
+
 def render_payload(payload: dict, fmt: str) -> str:
     if fmt == "json":
         return json.dumps(payload, indent=2, sort_keys=True)
@@ -51,7 +87,7 @@ def render_payload(payload: dict, fmt: str) -> str:
 
             return yaml.safe_dump(payload, sort_keys=True, allow_unicode=False)
         except Exception:
-            return json.dumps(payload, indent=2, sort_keys=True)
+            return "\n".join(_to_yaml_lines(payload))
     if fmt == "xml":
         root = Element("architecture")
         root.attrib["name"] = str(payload.get("name", ""))
@@ -70,4 +106,3 @@ def write_output(path: Path, payload: dict, fmt: str) -> None:
     ensure_dir(path.parent)
     rendered = render_payload(payload, fmt)
     path.write_text(rendered + "\n", encoding="utf-8")
-

@@ -8,7 +8,7 @@ from .discovery import discover_arch_files
 from .lark_parsers import parse_special
 from .models import Architecture
 from .normalize import add_c_parse, add_special_parse
-from .succinct import build_succinct_entries
+from .succinct import build_succinct_payload
 from .treesitter_c import parse_c_family
 
 
@@ -85,7 +85,14 @@ class GenericArchitectureScraper:
             base["typedefs"] = all_data.get("typedefs", [])
             base["structs"] = all_data.get("structs", [])
         elif category == "succinct":
-            base["entries"] = build_succinct_entries(all_data)
+            base = {
+                "name": all_data.get("name"),
+                "pretty_name": all_data.get("pretty_name"),
+                "category": category,
+            }
+            succinct_payload = build_succinct_payload(all_data)
+            base["header"] = succinct_payload.get("header", {})
+            base["entries"] = succinct_payload.get("entries", [])
         else:
             base["all"] = all_data
         return base
