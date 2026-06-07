@@ -477,6 +477,76 @@ def _entry_signature(entry: dict[str, Any]) -> tuple[str, str, str]:
     return mnemonic, opcode_sig, operand_sig
 
 
+def _record_operands(record: dict[str, Any]) -> list[str]:
+    values: list[str] = []
+    raw_operands = record.get("operands", [])
+    if isinstance(raw_operands, list):
+        for item in raw_operands:
+            if isinstance(item, dict):
+                value = str(item.get("name", "") or item.get("raw", "")).strip()
+            else:
+                value = str(item).strip()
+            if value:
+                values.append(value)
+    elif raw_operands:
+        values.append(str(raw_operands))
+    return values
+
+
+_CPENC_RE = re.compile(
+    r"^\s*CPENC\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*\)\s*$",
+    re.IGNORECASE,
+)
+
+
+def _decode_cpenc(value: str) -> dict[str, Any] | None:
+    match = _CPENC_RE.match(value.strip())
+    if not match:
+        return None
+    op0, op1, crn, crm, op2 = [int(item) for item in match.groups()]
+    encoding = ((op0 & 0x3) << 14) | ((op1 & 0x7) << 11) | ((crn & 0xF) << 7) | ((crm & 0xF) << 3) | (op2 & 0x7)
+    return {
+        "value": f"0x{encoding:04x}",
+        "subfields": {"op0": op0, "op1": op1, "crn": crn, "crm": crm, "op2": op2},
+    }
+
+
+def _build_aarch64_sysreg_entry(record: dict[str, Any], used_ids: set[str]) -> dict[str, Any] | None:
+    mnemonic = _clean_text(str(record.get("mnemonic", "") or record.get("name", "")))
+    if mnemonic.upper() not in {"SYSREG", "SYSREG128"}:
+        return None
+    operands = _record_operands(record)
+    if len(operands) < 2:
+        return None
+
+    reg_name = _clean_text(operands[0])
+    cpenc = _decode_cpenc(_clean_text(operands[1]))
+    if not reg_name or cpenc is None:
+        return None
+
+    flags = _to_kebab(_clean_text(operands[2])) if len(operands) > 2 else ""
+    features = _to_kebab(_clean_text(operands[3])) if len(operands) > 3 else ""
+
+    entry_operands: list[dict[str, Any]] = [{"kind": "system-register", "text": reg_name}]
+    if flags and flags not in {"0", "none"}:
+        entry_operands.append({"kind": "flag", "text": flags})
+    if features and features not in {"aarch64-no-features", "0", "none"}:
+        entry_operands.append({"kind": "other", "text": features})
+
+    opcode: dict[str, Any] = {
+        "form": "numeric",
+        "value": cpenc["value"],
+        "encoding_kind": "cpenc",
+        "subfields": cpenc["subfields"],
+    }
+    return {
+        "id": _new_id(used_ids),
+        "mnemonic": reg_name,
+        "operands": entry_operands,
+        "opcode": opcode,
+    }
+
+
 def _is_useful_entry(entry: dict[str, Any]) -> bool:
     opcode = entry.get("opcode", {})
     if not isinstance(opcode, dict):
@@ -662,6 +732,7 @@ def _build_header(entries: list[dict[str, Any]]) -> dict[str, Any]:
             "selector": "optional opcode extension selector",
             "constraints": "optional variant constraints",
             "encoding_flags": "optional encoding modifiers",
+            "subfields": "optional opcode bitfield/subfield mapping",
         },
         "observed_forms": opcode_forms,
         "normalization_rules": [
@@ -683,6 +754,17 @@ def build_succinct_payload(arch_payload: dict[str, Any]) -> dict[str, Any]:
     entries = _build_entries(opcode_records)
     if not entries:
         entries = _build_entries(instruction_records)
+
+    if str(arch_payload.get("name", "")).lower() == "aarch64":
+        used_ids = {str(item.get("id", "")) for item in entries}
+        aarch64_entries: list[dict[str, Any]] = []
+        for record in instruction_records:
+            parsed = _build_aarch64_sysreg_entry(record, used_ids)
+            if not parsed:
+                continue
+            aarch64_entries.append(parsed)
+        if aarch64_entries:
+            entries = aarch64_entries
 
     return {
         "header": _build_header(entries),
