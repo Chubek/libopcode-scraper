@@ -11,7 +11,7 @@ line: directive | record | comment | blank
 directive: "%" /[^\n]*/
 record: field ("," field)*
 field: /[^,\n]+/
-comment: /[ \t]*[#;].*/
+comment: /[ \t]*(#|;|\/\/).*/
 blank: /[ \t]*/
 %import common.NEWLINE
 %ignore NEWLINE
@@ -25,7 +25,7 @@ record: mnemonic sep field*
 mnemonic: /[A-Za-z_.$][A-Za-z0-9_.$-]*/
 sep: /[ \t,:]+/
 field: /[^,\s][^,\n]*/
-comment: /[ \t]*[#;].*/
+comment: /[ \t]*(#|;|\/\/).*/
 blank: /[ \t]*/
 %import common.NEWLINE
 %ignore NEWLINE
@@ -37,7 +37,7 @@ line: macrodef | record | comment | blank
 macrodef: /[ \t]*[A-Za-z_][A-Za-z0-9_]*/ "(" /[^)]*/ ")" /[ \t]*/ ","?
 record: field ("," field)*
 field: /[^,\n]+/
-comment: /[ \t]*[#;].*/
+comment: /[ \t]*(#|;|\/\/).*/
 blank: /[ \t]*/
 %import common.NEWLINE
 %ignore NEWLINE
@@ -104,7 +104,7 @@ def parse_special(path: Path) -> LarkParseResult:
         records = []
         for line in text.splitlines():
             stripped = line.strip()
-            if not stripped or stripped.startswith(("#", ";", "%")):
+            if not stripped or stripped.startswith(("#", ";", "%", "//", "/*", "*", "*/")):
                 continue
             fields = [part.strip() for part in stripped.split(",")]
             records.append({"fields": fields, "raw": stripped})

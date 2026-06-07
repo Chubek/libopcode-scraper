@@ -31,7 +31,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--arch", required=True, choices=available_architectures())
     parser.add_argument("--output-dir")
     parser.add_argument("--format", required=True, choices=sorted(OUTPUT_FORMATS))
-    parser.add_argument("--scrape", nargs="+", default=["+all"])
+    parser.add_argument("--scrape", nargs="+", default=["+all"], help="selectors: +all +dis +opc +inst +succinct")
     return parser
 
 
@@ -63,6 +63,8 @@ def run(arch: str, output_dir: Path | None, fmt: str, scrape_tokens: list[str]) 
             out_payload = scraper.scrape_opc()
         elif category == "inst":
             out_payload = scraper.scrape_inst()
+        elif category == "succinct":
+            out_payload = scraper.scrape_succinct()
         else:
             raise ValueError(category)
 
@@ -78,4 +80,3 @@ def main(argv: list[str] | None = None) -> int:
     output_dir = Path(args.output_dir).resolve() if args.output_dir else None
     run(args.arch, output_dir, args.format, args.scrape)
     return 0
-
