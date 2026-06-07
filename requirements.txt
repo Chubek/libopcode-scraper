@@ -1,0 +1,5 @@
+tree-sitter
+tree-sitter-c
+pyyaml
+lxml
+sexpdata
